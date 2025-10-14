@@ -1,0 +1,26 @@
+{
+  "name": "nodejs-rag",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "swc src -d dist",
+    "start": "node dist/index.js",
+    "dev": "node --import @swc-node/register/esm-register --enable-source-maps src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "type": "module",
+  "devDependencies": {
+    "@swc-node/register": "^1.11.1",
+    "@swc/cli": "^0.7.8",
+    "@swc/core": "^1.13.5",
+    "@swc/helpers": "^0.5.17",
+    "@types/node": "^24.7.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "node-llama-cpp": "^3.14.0"
+  }
+}

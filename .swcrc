@@ -1,0 +1,17 @@
+    // .swcrc
+    {
+        "jsc": {
+            "parser": {
+                "syntax": "typescript",
+                "decorators": true
+            },
+            "target": "es2022",
+            "transform": {
+                "legacyDecorator": true
+            },
+            "baseUrl": "./src"
+        },
+        "module": {
+            "type": "es6" // or "es6" if using ES modules
+        }
+    }
