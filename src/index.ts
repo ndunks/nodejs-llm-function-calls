@@ -24,7 +24,7 @@ console.log('MCP Connected')
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const llama = await getLlama({ gpu: false })
+const llama = await getLlama({ gpu: 'cuda' })
 console.log('Loading model..')
 const model = await llama.loadModel({
     // useMmap: true,
