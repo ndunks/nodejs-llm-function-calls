@@ -1,6 +1,8 @@
 import { join } from 'path';
 import { homedir } from 'os';
 import { existsSync, readdirSync, readFileSync } from 'fs';
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { defineChatSessionFunction } from 'node-llama-cpp';
 
 /**
 * Finds the actual GGUF model file from Ollama's blob storage
@@ -97,3 +99,24 @@ export function getOllamaModelPath(modelName: string) {
   };
 }
 
+export async function mcpToolsToFunctions(client: Client) {
+  return Object.fromEntries(
+    (await client.listTools()).tools.map((tool) => {
+      return [
+        tool.name,
+        defineChatSessionFunction({
+          description: 'Chrome Browser: ' + (tool.description ?? `MCP tool: ${tool.name}`),
+          params: tool.inputSchema as any, // Already JSON Schema → Directly usable ✅
+          handler: async (args) => {
+            // Forward the call to MCP server
+            // const result = await this.callTool(tool.name, args);
+            const result = await client.callTool(
+              { name: tool.name, arguments: args },
+            )
+            return result; // Return result back to model
+          }
+        })
+      ]
+    })
+  )
+}

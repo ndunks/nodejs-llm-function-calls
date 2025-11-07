@@ -4,23 +4,10 @@ import fs from "node:fs"
 import readline from "node:readline"
 import { spawn } from "child_process";
 import { defineChatSessionFunction, getLlama, LlamaChatSession, LlamaLogLevel, type ChatSessionModelFunctions } from "node-llama-cpp"
-import { MCPStdIOChrome } from "./mcp-stdio-chrome";
+
 
 
 console.log('Setup MCP')
-
-const mcpChrome = new MCPStdIOChrome({
-    name: 'Chrome Dev Tools',
-    version: '1.0.0'
-})
-
-await mcpChrome.connect({
-    cwd: process.cwd(),
-    command: process.argv0,
-    args: [path.join(process.cwd(), `node_modules/.bin/chrome-devtools-mcp`)],
-})
-
-console.log('MCP Connected')
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -73,7 +60,7 @@ function isSafeArg(arg) {
     return true;
 }
 const functions = {
-    ...(await mcpChrome.getDefineChatSessionFunctions()),
+    // ...(await mcpChrome.getDefineChatSessionFunctions()),
     task_list_maxsol: defineChatSessionFunction({
         description: 'Get maxsol employee task list from maxpoint.maxsol.id',
         params: {

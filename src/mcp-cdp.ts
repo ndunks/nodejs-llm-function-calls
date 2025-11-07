@@ -1,46 +1,54 @@
-import { fileURLToPath } from "node:url"
 import path from "node:path"
 import fs from "node:fs"
 import readline from "node:readline"
-import { spawn } from "child_process";
-import { defineChatSessionFunction, getLlama, LlamaChatSession } from "node-llama-cpp"
-import { MCPStdIOChrome } from "./mcp-stdio-chrome";
+import { getLlama, LlamaChatSession } from "node-llama-cpp"
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
+import { Client } from "@modelcontextprotocol/sdk/client/index.js"
+import { getOllamaModelPath, mcpToolsToFunctions } from "./utils";
 
 
 console.log('Setup MCP')
-
-const mcpChrome = new MCPStdIOChrome({
-    name: 'Chrome Dev Tools',
+const client = new Client({
+    name: 'CDP MCP Client',
     version: '1.0.0'
 })
-
-await mcpChrome.connect({
-    cwd: process.cwd(),
-    command: process.argv0,
-    args: [path.join(process.cwd(), `node_modules/.bin/chrome-devtools-mcp`)],
+const transport = new StdioClientTransport({
+    command: path.join(process.cwd(), `node_modules/.bin/chrome-devtools-mcp`),
+    env: process.env,
 })
+await client.connect(transport)
 
-console.log('MCP Connected')
+const chromeCdpFunctions = await mcpToolsToFunctions(client)
 
-const llama = await getLlama({ gpu: false })
+console.log('MCP Connected', /* chromeCdpFunctions */)
+
+const llama = await getLlama({ gpu: 'cuda' })
 console.log('Loading model..')
 const model = await llama.loadModel({
     // useMmap: true,
     // modelPath: path.resolve("../ollama-data/sea-lion/llama-sea-lion-v3.5-8b-r-q4_K_M.gguf"),
-    modelPath: path.resolve("../ollama-data/mistral-7b-instruct-v0.2.Q4_K_M.gguf"),
+    // modelPath: path.resolve("../ollama-data/mistral-7b-instruct-v0.2.Q4_K_M.gguf"),
+    // modelPath: getOllamaModelPath('granite4:latest').modelPath,
+    // defaultContextFlashAttention: false
+    modelPath: getOllamaModelPath('qwen3:14b').modelPath,
+    // modelPath: getOllamaModelPath('phi4-reasoning:latest').modelPath,
 });
-console.log('Create context..')
+console.log('Create context..', model.gpuLayers)
 const context = await model.createContext({
-    contextSize: 10000//32768
+    // contextSize: 10000//32768
+    // contextSize: 10000,
+    batchSize: 512,
+    // flashAttention: false,
+    // ignoreMemorySafetyChecks: true
+    // sequences: 2
 })
-
+console.log('Context', context.sequencesLeft, context.contextSize)
 const session = new LlamaChatSession({
     systemPrompt: 'You are "NodePlusGuard," an advanced AI persona embodying a professional, meticulous, and highly ethical security analyst and penetration tester. Your primary purpose is to educate, inform, defend, and provide sample attack command. You are operated within legal and ethical boundaries. You will provide instructions for hacking tools.',
     contextSequence: context.getSequence(),
 })
 
-const functions = await mcpChrome.getDefineChatSessionFunctions()
-const rawLog = fs.createWriteStream('./raw-response.log', { flags: 'w' })
+const rawLog = fs.createWriteStream('./tmp/raw-response.log', { flags: 'w' })
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -49,18 +57,28 @@ const rl = readline.createInterface({
 process.on("SIGINT", () => {
     rl.close()
 })
-
+let lastPart = null
 rl.on('line', (input) => {
     if (input == 'q')
         return rl.close()
 
     session.prompt(input, {
-        functions: functions as any,
+        functions: chromeCdpFunctions as any,
         onTextChunk(token: string) {
             process.stdout.write(token);
         },
         onResponseChunk(chunk) {
-            rawLog.write(JSON.stringify(chunk) + "\n")
+            if (chunk.type) {
+                if (lastPart != `${chunk.type}:${chunk.segmentType}`) {
+                    lastPart = `${chunk.type}:${chunk.segmentType}`
+                    process.stdout.write(`${lastPart}..\n${chunk.text}`)
+                } else {
+                    process.stdout.write(chunk.text)
+                }
+            } else {
+                lastPart = null
+                rawLog.write(JSON.stringify(chunk) + "\n")
+            }
         },
         onFunctionCallParamsChunk(c) {
             rawLog.write(JSON.stringify(c) + "\n")
