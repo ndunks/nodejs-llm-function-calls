@@ -3,13 +3,7 @@ import path from "node:path"
 import fs from "node:fs"
 import readline from "node:readline"
 import { spawn } from "child_process";
-import { defineChatSessionFunction, getLlama, LlamaChatSession, LlamaLogLevel, type ChatSessionModelFunctions } from "node-llama-cpp"
-
-
-
-console.log('Setup MCP')
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+import { defineChatSessionFunction, getLlama, LlamaChatSession } from "node-llama-cpp"
 
 const llama = await getLlama({ gpu: 'cuda' })
 console.log('Loading model..')
@@ -61,43 +55,6 @@ function isSafeArg(arg) {
 }
 const functions = {
     // ...(await mcpChrome.getDefineChatSessionFunctions()),
-    task_list_maxsol: defineChatSessionFunction({
-        description: 'Get maxsol employee task list from maxpoint.maxsol.id',
-        params: {
-            type: 'object',
-            properties: {
-                page: {
-                    type: 'integer',
-                    description: 'Page number, default is 1'
-                }
-            },
-        },
-        async handler(params: any) {
-            return fetch(`https://maxpoint.maxsol.id/?page=${params.page || 1}`)
-                .then(res => res.text())
-                .then(html => {
-                    const regex = /<h5[^>]+>(?<NAME>[^<]*)<\/h5>\s+<i[^>]*>(?<DATE>[\d \-:]+)<\/i>[\s\S]*?<div class="card-text">\s+<p>\s+(?<BODY>[\s\S]*?)\s+<\/p>\s+<\/div>/g;
-                    const results = html.matchAll(regex);
-                    const items: {
-                        name: string,
-                        /**  2025-10-14 02:39:17 */
-                        date: string,
-                        task: string
-                    }[] = []
-
-                    if (results) {
-                        for (const match of results) {
-                            const name = match.groups.NAME;
-                            const date = match.groups.DATE;
-                            const task = match.groups.BODY?.replaceAll('<br />', "\n").replaceAll(/\n+/g, '\n');
-                            // console.log(name, date, body); // { name: "NAME", date: "DATE", body: "BODY" }
-                            items.push({ name, date, task })
-                        }
-                    }
-                    return items.map(({ name, date, task }) => `Name: ${name}, Date: ${date}, Task: ${task}`).join("\n---\n")
-                })
-        }
-    }),
     exec: defineChatSessionFunction({
         description: `Execute a whitelisted command with any arguments.`,
         params: {
